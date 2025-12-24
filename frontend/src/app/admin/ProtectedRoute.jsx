@@ -1,48 +1,82 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { useSelector } from "react-redux";
 
-let isRedirecting = false;
+/**
+ * ✅ Public routes which should NEVER be protected
+ * (avoid infinite redirect loops)
+ */
+const PUBLIC_ROUTES = ["/auth", "/forgot-password"];
 
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const router = useRouter();
+  const pathname = usePathname();
+
   const { user, authChecked, isAuthenticated, loading } = useSelector(
     (state) => state.auth
   );
 
+  /**
+   * ✅ useRef instead of global variable
+   * (safe for re-renders, strict mode, multiple instances)
+   */
+  const isRedirectingRef = useRef(false);
+
   useEffect(() => {
+    // ⏳ Wait until auth status is checked
     if (!authChecked) return;
 
-    // ✅ safe access to pathname
-    const path = router.pathname ?? (typeof window !== "undefined" ? window.location.pathname : "");
+    // 🌍 Allow public routes
+    if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) return;
 
-    // ❌ Do not redirect public pages like /auth
-    if (path.startsWith("/auth")) return;
-
-    if (!isAuthenticated && !isRedirecting) {
-      isRedirecting = true;
+    // 🔐 Not authenticated → redirect to login
+    if (!isAuthenticated && !isRedirectingRef.current) {
+      isRedirectingRef.current = true;
       router.replace("/auth");
-    } else if (allowedRoles.length && !allowedRoles.includes(user?.role) && !isRedirecting) {
-      isRedirecting = true;
+      return;
+    }
+
+    // 🚫 Role not allowed → unauthorized page
+    if (
+      isAuthenticated &&
+      allowedRoles.length > 0 &&
+      !allowedRoles.includes(user?.role) &&
+      !isRedirectingRef.current
+    ) {
+      isRedirectingRef.current = true;
       router.replace("/unauthorized");
     }
-  }, [authChecked, isAuthenticated, user, allowedRoles, router]);
+  }, [
+    authChecked,
+    isAuthenticated,
+    user,
+    allowedRoles,
+    pathname,
+    router,
+  ]);
 
+  // ⏳ Loading state (prevents flicker)
   if (!authChecked || loading) {
     return (
-      <div style={{ textAlign: "center", padding: "2rem", fontWeight: "bold", color: "#666" }}>
+      <div style={{ textAlign: "center", padding: "2rem" }}>
         ⏳ Checking authorization...
       </div>
     );
   }
 
-  if (isAuthenticated && (!allowedRoles.length || allowedRoles.includes(user?.role))) {
+  // ✅ Authorized → render content
+  if (
+    isAuthenticated &&
+    (allowedRoles.length === 0 || allowedRoles.includes(user?.role))
+  ) {
     return <>{children}</>;
   }
 
+  // ❌ Unauthorized → render nothing (redirect already handled)
   return null;
 };
 
 export default ProtectedRoute;
+
