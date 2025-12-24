@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchUser } from "@/redux/slices/authSlice";
 import ButtonAppBar from "./components/Header/Header";
@@ -12,9 +12,12 @@ export default function ClientLayout({ children }) {
   const dispatch = useDispatch();
   const authChecked = useSelector((state) => state.auth.authChecked);
 
-  // ✅ RUNS ONLY ON APP START / RELOAD
+  // 🔐 ENSURE fetchUser runs ONLY ONCE
+  const hasFetchedRef = useRef(false);
+
   useEffect(() => {
-    if (!authChecked) {
+    if (!hasFetchedRef.current && !authChecked) {
+      hasFetchedRef.current = true;
       dispatch(fetchUser());
     }
   }, [authChecked, dispatch]);
