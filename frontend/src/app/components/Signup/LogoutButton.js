@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
@@ -16,16 +16,19 @@ const LogoutButton = () => {
   const handleLogout = async () => {
     try {
       setLoading(true);
+
+      // 🔥 backend logout
       await API.post("/logout");
 
+      // 🔥 clear redux auth state
       dispatch(clearUser());
-      localStorage.removeItem("user");
 
       toast.success("✅ Logged out successfully");
       router.push("/");
     } catch (error) {
-      console.error("❌ Logout error:", error.response?.data || error.message);
-      toast.error("Logout failed, please try again.");
+      toast.error(
+        error.response?.data?.message || "Logout failed, please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -37,7 +40,6 @@ const LogoutButton = () => {
       color="error"
       onClick={handleLogout}
       disabled={loading}
-      className="px-8 py-2 rounded-full font-semibold shadow-lg hover:scale-105 transition-transform duration-300"
     >
       {loading ? <CircularProgress size={24} color="inherit" /> : "Logout"}
     </Button>
@@ -45,3 +47,4 @@ const LogoutButton = () => {
 };
 
 export default LogoutButton;
+
